@@ -1,623 +1,433 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="やまログ">
-<meta name="theme-color" content="#eef1ec" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#141a17" media="(prefers-color-scheme: dark)">
-<title>やまログ</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="かぶビュー">
+<meta name="theme-color" content="#131722">
+<title>かぶビュー</title>
 <style>
+*{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#eef1ec; --surface:#ffffff; --ink:#1e2b24; --muted:#647069; --line:#d6ddd6;
-  --forest:#2e5d45; --contour:#8a5a3b; --mark:#e0412b; --on-mark:#ffffff; --you:#1f6fd1;
-  color-scheme:light;
-  box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  height:100%;
-  background:var(--bg);
+  --bg:#ffffff;--surface:#f0f3fa;--raise:#ffffff;--line:#e0e3eb;
+  --text:#131722;--muted:#6a6d78;--accent:#2962ff;--down:#f23645;
+  --scrim:rgba(19,23,34,.4);color-scheme:light;
 }
-@media (prefers-color-scheme: dark){
+@media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#141a17; --surface:#1d2621; --ink:#e6ece8; --muted:#97a39c; --line:#2d3833;
-    --forest:#6bbf93; --contour:#c99573; --mark:#ff5a43; --on-mark:#ffffff; --you:#5aa2ff;
-    color-scheme:dark;
+    --bg:#131722;--surface:#1e222d;--raise:#1e222d;--line:#2a2e39;
+    --text:#d1d4dc;--muted:#787b86;--scrim:rgba(0,0,0,.55);color-scheme:dark;
   }
 }
-*,*::before,*::after{box-sizing:border-box}
-html{height:100%}
-body{margin:0;height:100%;background:var(--bg);color:var(--ink);
-  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
-  -webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
-button,input,textarea,select{font:inherit;color:inherit}
-button{cursor:pointer}
-:focus-visible{outline:2px solid var(--forest);outline-offset:2px}
-.num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.muted{color:var(--muted)}
+:root[data-theme="dark"]{
+  --bg:#131722;--surface:#1e222d;--raise:#1e222d;--line:#2a2e39;
+  --text:#d1d4dc;--muted:#787b86;--scrim:rgba(0,0,0,.55);color-scheme:dark;
+}
+html,body{height:100%;background:var(--bg);color:var(--text)}
+body{
+  font:15px/1.45 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Trebuchet MS",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;
+  height:100dvh;overflow:hidden;padding-top:env(safe-area-inset-top,0px);
+}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-#app{display:flex;flex-direction:column;height:100%}
-main{flex:1;position:relative;overflow:hidden}
-.view{position:absolute;inset:0;overflow-y:auto;display:none;-webkit-overflow-scrolling:touch}
-.view.active{display:block}
-#view-map{overflow:hidden}
-#map{position:absolute;inset:0;background:var(--bg)}
+header{display:flex;align-items:center;gap:4px;height:52px;padding:0 6px 0 14px;border-bottom:1px solid var(--line);flex:none}
+.listbtn{display:flex;align-items:center;gap:4px;background:none;border:0;font-size:19px;font-weight:700;min-width:0;padding:6px 0}
+.listbtn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.listbtn svg{flex:none;color:var(--muted)}
+.spacer{flex:1}
+.iconbtn{width:42px;height:42px;display:grid;place-items:center;background:none;border:0;border-radius:8px}
+.iconbtn:active{background:var(--surface)}
 
-nav.tabs{display:flex;background:var(--surface);border-top:1px solid var(--line);
-  padding-bottom:env(safe-area-inset-bottom,0px)}
-nav.tabs button{flex:1;border:0;background:none;padding:8px 0 6px;display:flex;flex-direction:column;
-  align-items:center;gap:2px;font-size:11px;color:var(--muted)}
-nav.tabs button svg{width:24px;height:24px}
-nav.tabs button.active{color:var(--forest);font-weight:600}
+main{flex:1;position:relative;min-height:0}
+.view{position:absolute;inset:0;display:flex;flex-direction:column}
+.view.off{visibility:hidden;pointer-events:none}
+.widget{flex:1;min-height:0}
+.tradingview-widget-container,.tradingview-widget-container__widget{width:100%;height:100%}
+.attr{flex:none;font-size:11px;color:var(--muted);text-align:right;padding:4px 12px}
+.attr a{color:inherit}
 
-/* map overlays */
-.live{position:absolute;top:10px;left:10px;right:64px;z-index:1000;background:var(--surface);
-  border-radius:14px;padding:10px 14px;display:none;grid-template-columns:repeat(2,1fr);gap:6px 14px;
-  box-shadow:0 2px 10px rgba(20,30,25,.18);border-left:5px solid var(--mark)}
-.live.on{display:grid}
-.live .k{font-size:11px;color:var(--muted)}
-.live .v{font-size:22px;font-weight:700;line-height:1.1}
-.live .v small{font-size:12px;font-weight:500;margin-left:2px;color:var(--muted)}
-.live .paused{grid-column:1/-1;font-size:12px;color:var(--mark);font-weight:700;display:none}
-.live.is-paused .paused{display:block}
+.chips{flex:none;display:flex;gap:6px;overflow-x:auto;padding:8px 12px;border-bottom:1px solid var(--line);scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:6px 12px;border-radius:999px;background:var(--surface);border:0;font-size:14px;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--accent);color:#fff}
 
-.fab{position:absolute;right:10px;z-index:1000;width:46px;height:46px;border-radius:50%;border:0;
-  background:var(--surface);box-shadow:0 2px 8px rgba(20,30,25,.25);display:grid;place-items:center;color:var(--ink)}
-.fab svg{width:22px;height:22px}
-.fab.following{color:var(--you)}
-#btnLocate{bottom:112px}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--muted);padding:24px;text-align:center}
 
-.controls{position:absolute;left:0;right:0;bottom:18px;z-index:1000;display:flex;justify-content:center;gap:12px;padding:0 12px}
-.btn{border:0;border-radius:999px;padding:14px 22px;font-weight:700;font-size:16px;
-  background:var(--surface);color:var(--ink);box-shadow:0 2px 10px rgba(20,30,25,.25)}
-.btn-start{background:var(--mark);color:var(--on-mark);padding:16px 34px;font-size:17px;
-  display:flex;align-items:center;gap:10px}
-.btn-start .dot{width:12px;height:12px;border-radius:50%;background:var(--on-mark)}
-.btn-stop{background:var(--ink);color:var(--bg)}
-.hidden{display:none!important}
+nav.tabs{flex:none;display:flex;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg)}
+.tab{flex:1;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:var(--muted);background:none;border:0}
+.tab[aria-selected="true"]{color:var(--text)}
+.tab[aria-selected="true"] svg{color:var(--accent)}
 
-.leaflet-control-layers{border-radius:12px!important}
-.leaflet-container{font:inherit}
-.you-dot{width:18px;height:18px;border-radius:50%;background:var(--you);border:3px solid #fff;box-shadow:0 0 0 2px rgba(31,111,209,.35)}
-.wp-pin{background:var(--contour);color:#fff;border-radius:8px;padding:2px 6px;font-size:11px;font-weight:700;white-space:nowrap;
-  transform:translate(-50%,-130%);display:inline-block;box-shadow:0 1px 4px rgba(0,0,0,.3)}
-.wp-pin::after{content:"";position:absolute;left:50%;bottom:-5px;margin-left:-5px;border:5px solid transparent;border-bottom:0;border-top-color:var(--contour)}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:15px;font-weight:600}
+.btn.danger{background:none;color:var(--down);width:100%;margin-top:20px;padding:12px}
+.link{background:none;border:0;color:var(--accent);font-weight:600;font-size:16px;padding:6px 2px}
 
-/* pages */
-.page{max-width:640px;margin:0 auto;padding:18px 16px 32px}
-.page h1{font-size:26px;margin:4px 0 14px;font-weight:800;letter-spacing:.02em}
-.page h2{font-size:15px;margin:26px 0 10px;color:var(--contour);font-weight:700}
-.empty{padding:40px 8px;text-align:center;color:var(--muted);line-height:1.8}
-
-.rec-item{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);
-  border-radius:12px;padding:12px 14px;margin-bottom:10px}
-.rec-item .t{font-weight:700;font-size:17px}
-.rec-item .d{font-size:12px;color:var(--muted);margin-top:2px}
-.rec-item .s{display:flex;gap:16px;margin-top:8px;font-size:14px}
-.rec-item .s b{font-size:16px}
-
-.totals{display:grid;grid-template-columns:1fr 1fr;border-top:2px solid var(--ink)}
-.totals div{padding:12px 4px 12px 0;border-bottom:1px solid var(--line)}
-.totals .k{font-size:12px;color:var(--muted)}
-.totals .v{font-size:28px;font-weight:800;line-height:1.15}
-.totals .v small{font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
-
-.chart{width:100%;height:auto;display:block}
-.chart text{font-size:9px;fill:var(--muted)}
-.chart .grid{stroke:var(--line);stroke-width:1}
-.chart .elev-line{fill:none;stroke:var(--contour);stroke-width:2;stroke-linejoin:round}
-.chart .elev-area{fill:var(--contour);opacity:.16}
-.chart .bar{fill:var(--forest)}
-
-.toplist{list-style:none;margin:0;padding:0}
-.toplist li{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
-
-.row-btns{display:flex;flex-wrap:wrap;gap:10px}
-.btn-plain{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:11px 16px;font-weight:600}
-.btn-danger{color:var(--mark)}
-
-/* detail sheet */
-.sheet{position:fixed;inset:0;z-index:2000;background:var(--bg);overflow-y:auto;
-  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
-  transform:translateX(100%);transition:transform .25s ease;visibility:hidden}
-.sheet.open{transform:none;visibility:visible}
-@media (prefers-reduced-motion: reduce){.sheet{transition:none}}
-.sheet-head{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:6px;
-  padding:8px 8px;border-bottom:1px solid var(--line)}
-.sheet-head button{border:0;background:none;padding:8px 10px;font-weight:600;color:var(--forest);font-size:16px}
-.name-input{width:100%;border:0;border-bottom:2px solid var(--ink);background:transparent;font-size:24px;font-weight:800;padding:4px 0;border-radius:0}
-.name-input:focus{outline:none;border-bottom-color:var(--forest)}
-#dmap{height:260px;border-radius:12px;margin:14px 0 4px;border:1px solid var(--line)}
-.ct{list-style:none;margin:0;padding:0;position:relative}
-.ct li{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line)}
-.ct .time{font-weight:700}
-.ct .gap{font-size:12px;color:var(--muted)}
-.ct .alt{font-size:12px;color:var(--muted)}
-textarea.memo{width:100%;min-height:120px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--surface);resize:vertical;line-height:1.6}
-
-.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
-  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:3000;
-  opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%;text-align:center}
-.toast.show{opacity:1}
+#overlay{position:fixed;inset:0;z-index:10;background:var(--scrim);opacity:0;transition:opacity .2s;display:flex;align-items:flex-end}
+#overlay[hidden]{display:none}
+#overlay.open{opacity:1}
+.sheet{width:100%;max-height:88dvh;overflow:auto;-webkit-overflow-scrolling:touch;background:var(--raise);border-radius:14px 14px 0 0;
+  padding:6px 16px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(28px);transition:transform .2s}
+#overlay.open .sheet{transform:none}
+@media (min-width:640px){
+  #overlay{align-items:center;justify-content:center}
+  .sheet{max-width:480px;border-radius:14px}
+}
+@media (prefers-reduced-motion:reduce){#overlay,.sheet{transition:none}}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 10px}
+.sheethead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sheethead h2{font-size:17px}
+.field{width:100%;font-size:16px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+.field::placeholder{color:var(--muted)}
+.label{font-size:13px;color:var(--muted);margin:18px 0 8px}
+.addgrid{display:grid;grid-template-columns:1fr auto;gap:8px}
+.addgrid #acode{grid-column:1/-1}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+.hint.err{color:var(--down)}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.row{display:flex;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row .main{flex:1;min-width:0}
+.nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sym{font-size:12px;color:var(--muted)}
+.mini{width:36px;height:36px;flex:none;border-radius:8px;background:var(--surface);border:0;display:grid;place-items:center}
+.mini:disabled{opacity:.3}
+.listrow{width:100%;background:none;border:0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:13px 0;text-align:left}
+.listrow .main{flex:1;min-width:0}
+.listrow .check{color:var(--accent);width:20px}
+.newlist{margin-top:12px;width:100%;background:var(--surface);color:var(--text)}
+.seg{display:flex;background:var(--surface);border-radius:8px;padding:2px}
+.seg button{flex:1;border:0;background:none;padding:8px;border-radius:6px;color:var(--muted);font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--bg);color:var(--text)}
 </style>
 </head>
 <body>
-<div id="app">
-  <main>
-    <section class="view active" id="view-map">
-      <div id="map"></div>
-      <div class="live" id="live">
-        <div><div class="k">経過時間</div><div class="v num" id="lvTime">0:00:00</div></div>
-        <div><div class="k">距離</div><div class="v num"><span id="lvDist">0.00</span><small>km</small></div></div>
-        <div><div class="k">現在の標高</div><div class="v num"><span id="lvAlt">--</span><small>m</small></div></div>
-        <div><div class="k">登り / 下り</div><div class="v num"><span id="lvGain">0</span><small>/</small><span id="lvLoss">0</span><small>m</small></div></div>
-        <div class="paused">一時停止中</div>
-      </div>
-      <button class="fab following" id="btnLocate" aria-label="現在地に戻る">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-      </button>
-      <div class="controls">
-        <button class="btn btn-start" id="btnStart"><span class="dot"></span>記録を開始</button>
-        <button class="btn hidden" id="btnPause">一時停止</button>
-        <button class="btn hidden" id="btnMark">地点を記録</button>
-        <button class="btn btn-stop hidden" id="btnStop">終了</button>
-      </div>
-    </section>
 
-    <section class="view" id="view-list"><div class="page" id="listPage"></div></section>
-    <section class="view" id="view-stats"><div class="page" id="statsPage"></div></section>
-  </main>
+<header>
+  <button class="listbtn" id="listBtn" aria-label="ウォッチリストを切り替え">
+    <span id="listName"></span>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+  </button>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="addBtn" aria-label="銘柄を追加">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+  <button class="iconbtn" id="editBtn" aria-label="リストを編集">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+  </button>
+</header>
 
-  <nav class="tabs">
-    <button class="active" data-view="map" aria-label="地図">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 20 9 6l4 8 3-5 5 11z"/></svg>地図</button>
-    <button data-view="list" aria-label="山行記録">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>記録</button>
-    <button data-view="stats" aria-label="統計">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 20V12M10 20V6M15 20v-9M20 20V4"/></svg>統計</button>
-  </nav>
-</div>
+<main>
+  <section class="view" id="viewWatch">
+    <div class="widget" id="watchWidget"></div>
+    <p class="attr"><a href="https://jp.tradingview.com/" target="_blank" rel="noopener">Data by TradingView</a></p>
+  </section>
+  <section class="view off" id="viewChart">
+    <div class="chips" id="chips"></div>
+    <div class="widget" id="chartWidget"></div>
+  </section>
+</main>
 
-<div class="sheet" id="sheet" aria-hidden="true"></div>
-<div class="toast" id="toast"></div>
-<input type="file" id="importFile" accept=".json,application/json" class="hidden">
+<nav class="tabs" role="tablist">
+  <button class="tab" role="tab" data-tab="watch" aria-selected="true">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg>
+    ウォッチリスト
+  </button>
+  <button class="tab" role="tab" data-tab="chart" aria-selected="false">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 3v4M7 17v4M17 6v3M17 19v2"/><rect x="5" y="7" width="4" height="10" rx="1"/><rect x="15" y="9" width="4" height="10" rx="1"/></svg>
+    チャート
+  </button>
+</nav>
+
+<div id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 
 <script>
-(function(){
-'use strict';
+(() => {
+const STORE = 'kabuview:v1';
+const TV = 'https://s3.tradingview.com/external-embedding/';
+const PRESETS = [
+  ['TSE:7203','トヨタ自動車'],['TSE:6758','ソニーG'],['TSE:8306','三菱UFJ'],['TSE:9984','ソフトバンクG'],
+  ['TSE:7974','任天堂'],['TSE:8035','東京エレクトロン'],['TSE:6861','キーエンス'],['TSE:9983','ファーストリテイリング'],
+  ['NASDAQ:AAPL','Apple'],['NASDAQ:NVDA','NVIDIA'],['NASDAQ:MSFT','Microsoft'],['NASDAQ:TSLA','Tesla'],
+  ['NASDAQ:AMZN','Amazon'],['AMEX:SPY','S&P500 ETF'],['FX:USDJPY','ドル円'],['FX:EURJPY','ユーロ円']
+];
+
 const $ = s => document.querySelector(s);
-const KEY_REC = 'yamalog.records', KEY_CUR = 'yamalog.current';
-const ELEV_TH = 5;          // 累積標高のしきい値（m）
-const MAX_ACC = 50;         // これより精度が悪い点は捨てる（m）
-const MIN_STEP = 5;         // 前の点からこの距離以上動いたら記録（m）
+const uid = () => Math.random().toString(36).slice(2, 9);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const mk = (sym, name) => ({ s: sym, n: name });
 
-/* ---------- storage ---------- */
-function load(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
-function save(k, v){
-  try{ localStorage.setItem(k, JSON.stringify(v)); return true; }
-  catch(e){ toast('保存できませんでした。バックアップを書き出して古い記録を削除してください'); return false; }
-}
-let records = load(KEY_REC, []);
-let cur = load(KEY_CUR, null);
-function persistCur(){ if(cur) save(KEY_CUR, cur); }
-function persistRecords(){ return save(KEY_REC, records); }
-
-/* ---------- helpers ---------- */
-function hav(a, b){
-  const R = 6371000, toR = Math.PI/180;
-  const dLat = (b[0]-a[0])*toR, dLng = (b[1]-a[1])*toR;
-  const x = Math.sin(dLat/2)**2 + Math.cos(a[0]*toR)*Math.cos(b[0]*toR)*Math.sin(dLng/2)**2;
-  return 2*R*Math.asin(Math.sqrt(x));
-}
-function newAcc(){ return {dist:0, gain:0, loss:0, ref:null, max:null, min:null, last:null}; }
-function accAdd(a, p){
-  if(a.last) a.dist += hav(a.last, p);
-  a.last = p;
-  const alt = p[2];
-  if(alt == null) return;
-  if(a.ref == null) a.ref = alt;
-  else if(alt - a.ref >= ELEV_TH){ a.gain += alt - a.ref; a.ref = alt; }
-  else if(a.ref - alt >= ELEV_TH){ a.loss += a.ref - alt; a.ref = alt; }
-  a.max = a.max == null ? alt : Math.max(a.max, alt);
-  a.min = a.min == null ? alt : Math.min(a.min, alt);
-}
-function computeStats(points){ const a = newAcc(); points.forEach(p => accAdd(a, p)); return a; }
-const pad = n => String(n).padStart(2, '0');
-function clock(ms){ const s = Math.max(0, Math.floor(ms/1000)); return Math.floor(s/3600)+':'+pad(Math.floor(s%3600/60))+':'+pad(s%60); }
-function dur(ms){ const m = Math.round(ms/60000); const h = Math.floor(m/60); return h ? h+'時間'+(m%60 ? (m%60)+'分' : '') : (m%60)+'分'; }
-function hm(t){ const d = new Date(t); return d.getHours()+':'+pad(d.getMinutes()); }
-function ymd(t){ const d = new Date(t); return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate(); }
-function km(m, dig){ return (m/1000).toFixed(dig == null ? 2 : dig); }
-function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
-let toastTimer;
-function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
-
-/* ---------- map ---------- */
-if(typeof L === 'undefined'){
-  document.getElementById('map').innerHTML = '<div class="empty">地図を読み込めませんでした。電波のある場所で開き直してください。</div>';
-}
-const GSI = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>';
-function tiles(kind){
-  const ext = kind === 'seamlessphoto' ? 'jpg' : 'png';
-  return L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/'+kind+'/{z}/{x}/{y}.'+ext, {maxZoom:18, attribution:GSI});
-}
-let map, track, youMarker, accCircle, wpLayer;
-let follow = true, firstFix = true, lastPos = null;
-if(typeof L !== 'undefined'){
-  map = L.map('map', {zoomControl:false}).setView([34.95, 137.25], 10);
-  const std = tiles('std').addTo(map);
-  L.control.layers({'標準地図':std, '淡色地図':tiles('pale'), '航空写真':tiles('seamlessphoto')}, null, {position:'topright'}).addTo(map);
-  track = L.polyline([], {color:cssVar('--mark'), weight:5, opacity:.9}).addTo(map);
-  wpLayer = L.layerGroup().addTo(map);
-  map.on('dragstart', () => { follow = false; $('#btnLocate').classList.remove('following'); });
-}
-function wpIcon(name){ return L.divIcon({className:'', html:'<span class="wp-pin">'+esc(name)+'</span>', iconSize:[0,0]}); }
-
-$('#btnLocate').addEventListener('click', () => {
-  follow = true; $('#btnLocate').classList.add('following');
-  if(lastPos && map) map.setView([lastPos.p[0], lastPos.p[1]], Math.max(map.getZoom(), 15));
-  else toast('現在地を取得しています');
-});
-
-/* ---------- GPS ---------- */
-function onPos(pos){
-  const c = pos.coords;
-  const p = [+c.latitude.toFixed(6), +c.longitude.toFixed(6), c.altitude != null ? Math.round(c.altitude*10)/10 : null, pos.timestamp || Date.now()];
-  lastPos = {p, acc:c.accuracy};
-  if(map){
-    const ll = [p[0], p[1]];
-    if(!youMarker){
-      youMarker = L.marker(ll, {icon:L.divIcon({className:'', html:'<div class="you-dot"></div>', iconSize:[18,18], iconAnchor:[9,9]}), zIndexOffset:1000}).addTo(map);
-      accCircle = L.circle(ll, {radius:c.accuracy, color:cssVar('--you'), weight:1, fillOpacity:.08}).addTo(map);
-    } else { youMarker.setLatLng(ll); accCircle.setLatLng(ll).setRadius(c.accuracy); }
-    if(follow) map.setView(ll, firstFix ? 15 : map.getZoom(), {animate:!firstFix});
-    firstFix = false;
-  }
-  if(cur && !cur.paused) addPoint(p, c.accuracy);
-  renderLive();
-}
-let lastSaveAt = 0;
-function addPoint(p, acc){
-  if(acc > MAX_ACC) return;
-  const last = cur.points[cur.points.length-1];
-  if(last){
-    const d = hav(last, p), dt = (p[3]-last[3])/1000;
-    if(d < MIN_STEP) return;
-    if(dt > 0 && d/dt > 20) return; // 不自然な飛び（GPSの誤差）を除外
-  }
-  cur.points.push(p);
-  accAdd(cur.acc, p);
-  if(track) track.addLatLng([p[0], p[1]]);
-  if(Date.now() - lastSaveAt > 10000){ persistCur(); lastSaveAt = Date.now(); }
-}
-function onPosErr(e){
-  if(e.code === 1) toast('位置情報が許可されていません。設定 › プライバシー › 位置情報サービス › Safari で許可してください');
-}
-if('geolocation' in navigator){
-  navigator.geolocation.watchPosition(onPos, onPosErr, {enableHighAccuracy:true, maximumAge:0, timeout:30000});
-} else toast('この端末では位置情報が使えません');
-
-/* ---------- screen wake lock ---------- */
-let wakeLock = null;
-async function lockOn(){ try{ if('wakeLock' in navigator && !wakeLock){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } }catch(e){} }
-function lockOff(){ try{ if(wakeLock) wakeLock.release(); }catch(e){} wakeLock = null; }
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible'){ if(cur && !cur.paused) lockOn(); }
-  else persistCur();
-});
-window.addEventListener('pagehide', persistCur);
-
-/* ---------- recording ---------- */
-let tick = null;
-function elapsed(){
-  if(!cur) return 0;
-  const now = cur.paused ? cur.pauseStart : Date.now();
-  return now - cur.start - cur.pausedMs;
-}
-function renderLive(){
-  const live = $('#live');
-  live.classList.toggle('on', !!cur);
-  ['#btnPause','#btnMark','#btnStop'].forEach(s => $(s).classList.toggle('hidden', !cur));
-  $('#btnStart').classList.toggle('hidden', !!cur);
-  if(!cur) return;
-  live.classList.toggle('is-paused', cur.paused);
-  $('#btnPause').textContent = cur.paused ? '再開' : '一時停止';
-  $('#lvTime').textContent = clock(elapsed());
-  $('#lvDist').textContent = km(cur.acc.dist);
-  $('#lvAlt').textContent = lastPos && lastPos.p[2] != null ? Math.round(lastPos.p[2]) : '--';
-  $('#lvGain').textContent = Math.round(cur.acc.gain);
-  $('#lvLoss').textContent = Math.round(cur.acc.loss);
-}
-function startTick(){ clearInterval(tick); tick = setInterval(renderLive, 1000); }
-
-$('#btnStart').addEventListener('click', () => {
-  cur = {id:'h'+Date.now(), start:Date.now(), points:[], waypoints:[], paused:false, pausedMs:0, pauseStart:null, acc:newAcc()};
-  if(track) track.setLatLngs([]);
-  if(wpLayer) wpLayer.clearLayers();
-  if(lastPos && lastPos.acc <= MAX_ACC) addPoint(lastPos.p, lastPos.acc);
-  persistCur(); lockOn(); startTick(); renderLive();
-  toast('記録を開始しました。画面を開いたままにしてください');
-});
-$('#btnPause').addEventListener('click', () => {
-  if(!cur) return;
-  if(cur.paused){ cur.pausedMs += Date.now() - cur.pauseStart; cur.paused = false; cur.pauseStart = null; lockOn(); toast('記録を再開しました'); }
-  else { cur.paused = true; cur.pauseStart = Date.now(); lockOff(); toast('一時停止しました'); }
-  persistCur(); renderLive();
-});
-$('#btnMark').addEventListener('click', () => {
-  if(!cur) return;
-  if(!lastPos){ toast('現在地がまだ取得できていません'); return; }
-  const name = prompt('地点の名前（例：登山口、分岐、山頂）', cur.waypoints.length ? '' : '登山口');
-  if(name == null || !name.trim()) return;
-  const p = lastPos.p;
-  const w = {name:name.trim(), t:Date.now(), lat:p[0], lng:p[1], alt:p[2]};
-  cur.waypoints.push(w);
-  if(wpLayer) L.marker([w.lat, w.lng], {icon:wpIcon(w.name)}).addTo(wpLayer);
-  persistCur();
-  toast(w.name+'（'+hm(w.t)+'）を記録しました');
-});
-$('#btnStop').addEventListener('click', () => {
-  if(!cur) return;
-  if(!confirm('記録を終了して保存しますか？')) return;
-  const name = prompt('山の名前', '') ;
-  const end = cur.paused ? cur.pauseStart : Date.now();
-  const st = computeStats(cur.points);
-  const r = {
-    id:cur.id, name:(name && name.trim()) || '名前のない山行', start:cur.start, end,
-    duration:end - cur.start - cur.pausedMs, points:cur.points, waypoints:cur.waypoints, memo:'',
-    distance:st.dist, gain:st.gain, loss:st.loss, maxAlt:st.max, minAlt:st.min
+function defaultState() {
+  const a = uid(), b = uid(), c = uid();
+  return {
+    current: a, theme: 'auto', chartSymbol: '',
+    lists: [
+      { id: a, name: '日本株', symbols: [mk('TSE:7203','トヨタ自動車'), mk('TSE:6758','ソニーG'), mk('TSE:8306','三菱UFJ'), mk('TSE:9984','ソフトバンクG')] },
+      { id: b, name: '米国株', symbols: [mk('NASDAQ:AAPL','Apple'), mk('NASDAQ:NVDA','NVIDIA'), mk('NASDAQ:MSFT','Microsoft'), mk('NASDAQ:TSLA','Tesla')] },
+      { id: c, name: '為替', symbols: [mk('FX:USDJPY','ドル円'), mk('FX:EURJPY','ユーロ円')] }
+    ]
   };
-  records.unshift(r);
-  if(!persistRecords()){ records.shift(); return; }
-  cur = null;
-  try{ localStorage.removeItem(KEY_CUR); }catch(e){}
-  clearInterval(tick); lockOff();
-  if(track) track.setLatLngs([]);
-  if(wpLayer) wpLayer.clearLayers();
-  renderLive(); renderList(); renderStats();
-  toast('保存しました');
-  openDetail(r.id);
+}
+function load() {
+  try {
+    const v = JSON.parse(localStorage.getItem(STORE));
+    if (v && Array.isArray(v.lists) && v.lists.length) return v;
+  } catch (e) {}
+  return defaultState();
+}
+let state = load();
+function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
+const cur = () => state.lists.find(l => l.id === state.current) || state.lists[0];
+
+/* 入力をTradingViewのシンボル形式へ */
+function normalize(raw) {
+  let s = raw.trim().toUpperCase().replace(/\s+/g, '').replace('：', ':');
+  s = s.replace(/[０-９Ａ-Ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  if (!s) return '';
+  if (/^\d{4}$/.test(s) || /^\d{3}[A-Z]$/.test(s)) return 'TSE:' + s;
+  const m = s.match(/^(\d{4}|\d{3}[A-Z])\.T$/);
+  if (m) return 'TSE:' + m[1];
+  return s;
+}
+
+/* テーマ */
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const themeName = () => state.theme === 'auto' ? (mq.matches ? 'dark' : 'light') : state.theme;
+function applyTheme() {
+  const t = themeName();
+  document.documentElement.dataset.theme = t;
+  document.querySelector('meta[name="theme-color"]').content = t === 'dark' ? '#131722' : '#ffffff';
+}
+mq.addEventListener('change', () => { if (state.theme === 'auto') { applyTheme(); renderAll(); } });
+
+/* TradingViewウィジェットの埋め込み */
+function mount(el, script, config) {
+  el.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'tradingview-widget-container';
+  const inner = document.createElement('div');
+  inner.className = 'tradingview-widget-container__widget';
+  wrap.appendChild(inner);
+  const s = document.createElement('script');
+  s.type = 'text/javascript'; s.async = true; s.src = TV + script;
+  s.textContent = JSON.stringify(config);
+  wrap.appendChild(s);
+  el.appendChild(wrap);
+}
+const appUrl = () => location.href.split(/[?#]/)[0];
+
+function emptyState(el) {
+  el.innerHTML = '<div class="empty"><p>このリストにはまだ銘柄がありません</p><button class="btn">銘柄を追加</button></div>';
+  el.querySelector('button').onclick = () => openEdit(true);
+}
+
+let watchKey = '', chartKey = '';
+function renderWatch() {
+  const l = cur(), el = $('#watchWidget');
+  const key = JSON.stringify([l.id, l.name, l.symbols, themeName()]);
+  if (key === watchKey) return;
+  watchKey = key;
+  if (!l.symbols.length) { emptyState(el); return; }
+  mount(el, 'embed-widget-market-quotes.js', {
+    width: '100%', height: '100%', locale: 'ja', colorTheme: themeName(),
+    isTransparent: true, showSymbolLogo: true, largeChartUrl: appUrl(),
+    symbolsGroups: [{ name: l.name, symbols: l.symbols.map(x => ({ name: x.s, displayName: x.n || x.s })) }]
+  });
+}
+
+function renderChips() {
+  const l = cur(), box = $('#chips');
+  box.innerHTML = l.symbols.map((x, i) =>
+    `<button class="chip" data-i="${i}" aria-pressed="${x.s === state.chartSymbol}">${esc(x.n || x.s)}</button>`).join('');
+  box.style.display = l.symbols.length ? '' : 'none';
+  const on = box.querySelector('[aria-pressed="true"]');
+  if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
+}
+function renderChart() {
+  const l = cur(), el = $('#chartWidget');
+  if (!state.chartSymbol && l.symbols.length) state.chartSymbol = l.symbols[0].s;
+  renderChips();
+  if (!state.chartSymbol) { chartKey = ''; emptyState(el); return; }
+  const key = JSON.stringify([state.chartSymbol, themeName()]);
+  if (key === chartKey) return;
+  chartKey = key;
+  const dark = themeName() === 'dark';
+  mount(el, 'embed-widget-advanced-chart.js', {
+    autosize: true, symbol: state.chartSymbol, interval: 'D', timezone: 'Asia/Tokyo',
+    theme: themeName(), style: '1', locale: 'ja', allow_symbol_change: true,
+    hide_side_toolbar: true, calendar: false, save_image: false,
+    backgroundColor: dark ? '#131722' : '#ffffff',
+    gridColor: dark ? 'rgba(42,46,57,0.6)' : 'rgba(224,227,235,0.6)',
+    support_host: 'https://www.tradingview.com'
+  });
+}
+$('#chips').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  state.chartSymbol = cur().symbols[+b.dataset.i].s; save(); renderChart();
 });
 
-/* 前回の記録が途中なら復元 */
-if(cur){
-  if(!cur.acc) cur.acc = computeStats(cur.points);
-  if(track) track.setLatLngs(cur.points.map(p => [p[0], p[1]]));
-  if(wpLayer) cur.waypoints.forEach(w => L.marker([w.lat, w.lng], {icon:wpIcon(w.name)}).addTo(wpLayer));
-  if(!cur.paused) lockOn();
-  startTick();
-  setTimeout(() => toast('途中の記録を再開しました'), 600);
+/* タブ */
+let tab = 'watch';
+function setTab(t) {
+  tab = t;
+  $('#viewWatch').classList.toggle('off', t !== 'watch');
+  $('#viewChart').classList.toggle('off', t !== 'chart');
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
+  if (t === 'chart') renderChart(); else renderWatch();
 }
-renderLive();
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 
-/* ---------- tabs ---------- */
-document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('nav.tabs button').forEach(x => x.classList.toggle('active', x === b));
-  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-'+b.dataset.view));
-  if(b.dataset.view === 'map' && map) setTimeout(() => map.invalidateSize(), 50);
-  if(b.dataset.view === 'list') renderList();
-  if(b.dataset.view === 'stats') renderStats();
-}));
+function renderAll() {
+  $('#listName').textContent = cur().name;
+  renderWatch();
+  if (tab === 'chart' || chartKey) renderChart();
+}
 
-/* ---------- list ---------- */
-function renderList(){
-  const el = $('#listPage');
-  let h = '<h1>山行記録</h1>';
-  if(!records.length){
-    h += '<div class="empty">まだ記録がありません。<br>地図の「記録を開始」から最初の山行を記録しましょう。</div>';
-  } else {
-    h += records.map(r =>
-      '<button class="rec-item" data-id="'+esc(r.id)+'">'+
-        '<div class="t">'+esc(r.name)+'</div>'+
-        '<div class="d">'+ymd(r.start)+'　'+hm(r.start)+'〜'+hm(r.end)+'</div>'+
-        '<div class="s num"><span><b>'+km(r.distance,1)+'</b> km</span><span><b>'+dur(r.duration)+'</b></span><span>登り <b>'+Math.round(r.gain)+'</b> m</span></div>'+
-      '</button>').join('');
+/* ボトムシート */
+const overlay = $('#overlay'), sheet = $('#sheet');
+function openSheet(html, bind) {
+  sheet.innerHTML = '<div class="grab"></div>' + html;
+  bind && bind();
+  if (overlay.hidden) {
+    overlay.hidden = false;
+    requestAnimationFrame(() => overlay.classList.add('open'));
   }
-  el.innerHTML = h;
-  el.querySelectorAll('.rec-item').forEach(b => b.addEventListener('click', () => openDetail(b.dataset.id)));
+  sheet.scrollTop = 0;
+}
+function closeSheet() {
+  overlay.classList.remove('open');
+  setTimeout(() => { overlay.hidden = true; sheet.innerHTML = ''; }, 200);
+  renderAll();
+}
+overlay.addEventListener('click', e => { if (e.target === overlay) closeSheet(); });
+
+function selectList(id) {
+  if (state.current !== id) {
+    state.current = id;
+    state.chartSymbol = (cur().symbols[0] || {}).s || '';
+    save();
+  }
 }
 
-/* ---------- charts ---------- */
-function elevChart(points){
-  const pts = []; let d = 0;
-  for(let i = 0; i < points.length; i++){
-    if(i) d += hav(points[i-1], points[i]);
-    if(points[i][2] != null) pts.push([d, points[i][2]]);
-  }
-  if(pts.length < 2) return '<p class="muted">標高データがありません。</p>';
-  const step = Math.max(1, Math.floor(pts.length/400));
-  const s = pts.filter((_, i) => i % step === 0 || i === pts.length-1);
-  const W = 340, H = 160, pl = 34, pr = 8, pt = 10, pb = 22;
-  const maxD = s[s.length-1][0] || 1;
-  let lo = Math.min(...s.map(p => p[1])), hi = Math.max(...s.map(p => p[1]));
-  if(hi - lo < 40){ const m = (hi+lo)/2; hi = m+20; lo = m-20; }
-  const x = v => pl + v/maxD*(W-pl-pr), y = a => pt + (1-(a-lo)/(hi-lo))*(H-pt-pb);
-  const line = s.map((p, i) => (i ? 'L' : 'M')+x(p[0]).toFixed(1)+' '+y(p[1]).toFixed(1)).join('');
-  const area = line+'L'+x(maxD).toFixed(1)+' '+(H-pb)+'L'+pl+' '+(H-pb)+'Z';
-  return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="標高グラフ">'+
-    '<line class="grid" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(hi)+'" y2="'+y(hi)+'"/>'+
-    '<line class="grid" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+(H-pb)+'" y2="'+(H-pb)+'"/>'+
-    '<text x="'+(pl-4)+'" y="'+(y(hi)+3)+'" text-anchor="end">'+Math.round(hi)+'</text>'+
-    '<text x="'+(pl-4)+'" y="'+(H-pb)+'" text-anchor="end">'+Math.round(lo)+'</text>'+
-    '<path class="elev-area" d="'+area+'"/><path class="elev-line" d="'+line+'"/>'+
-    '<text x="'+pl+'" y="'+(H-6)+'">0</text>'+
-    '<text x="'+(W-pr)+'" y="'+(H-6)+'" text-anchor="end">'+km(maxD,1)+' km</text>'+
-    '<text x="'+pl+'" y="'+(pt-2)+'">m</text></svg>';
+function openLists() {
+  const rows = state.lists.map(l => `
+    <button class="listrow" data-id="${l.id}">
+      <span class="check">${l.id === cur().id ? '✓' : ''}</span>
+      <span class="main"><span class="nm">${esc(l.name)}</span><br><span class="sym">${l.symbols.length}銘柄</span></span>
+    </button>`).join('');
+  const seg = [['auto','自動'],['dark','ダーク'],['light','ライト']].map(([v, t]) =>
+    `<button data-theme="${v}" aria-pressed="${state.theme === v}">${t}</button>`).join('');
+  openSheet(`
+    <div class="sheethead"><h2>ウォッチリスト</h2><button class="link" id="done">閉じる</button></div>
+    <div>${rows}</div>
+    <button class="btn newlist" id="newList">＋ 新しいリスト</button>
+    <p class="label">表示テーマ</p>
+    <div class="seg">${seg}</div>`, () => {
+    $('#done').onclick = closeSheet;
+    sheet.querySelectorAll('.listrow').forEach(b => b.onclick = () => { selectList(b.dataset.id); closeSheet(); });
+    $('#newList').onclick = () => {
+      const name = (prompt('新しいリストの名前') || '').trim();
+      if (!name) return;
+      const l = { id: uid(), name: name.slice(0, 30), symbols: [] };
+      state.lists.push(l); selectList(l.id); save();
+      $('#listName').textContent = l.name;
+      openEdit(true);
+    };
+    sheet.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+      state.theme = b.dataset.theme; save(); applyTheme();
+      sheet.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    });
+  });
 }
-function monthChart(vals){
-  const W = 340, H = 140, pl = 6, pr = 6, pt = 14, pb = 20;
-  const max = Math.max(1, ...vals);
-  const bw = (W-pl-pr)/12;
-  let h = '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="月別の距離">';
-  h += '<line class="grid" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+(H-pb)+'" y2="'+(H-pb)+'"/>';
-  vals.forEach((v, i) => {
-    const bh = v/max*(H-pt-pb), bx = pl + i*bw + bw*.18;
-    if(v > 0){
-      h += '<rect class="bar" x="'+bx.toFixed(1)+'" y="'+(H-pb-bh).toFixed(1)+'" width="'+(bw*.64).toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="2"/>';
-      h += '<text x="'+(bx+bw*.32).toFixed(1)+'" y="'+(H-pb-bh-3).toFixed(1)+'" text-anchor="middle">'+(v/1000).toFixed(v >= 10000 ? 0 : 1)+'</text>';
+
+function openEdit(focusAdd) {
+  const l = cur();
+  openSheet(`
+    <div class="sheethead"><h2>リストを編集</h2><button class="link" id="done">完了</button></div>
+    <input class="field" id="lname" maxlength="30" aria-label="リスト名" value="${esc(l.name)}">
+    <p class="label">銘柄を追加</p>
+    <div class="addgrid">
+      <input class="field" id="acode" placeholder="7203 や NASDAQ:AAPL" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" enterkeyhint="next" aria-label="銘柄コード">
+      <input class="field" id="aname" placeholder="表示名（任意）" enterkeyhint="done" aria-label="表示名">
+      <button class="btn" id="addSym">追加</button>
+    </div>
+    <p class="hint" id="msg">日本株は4桁のコードだけでOK。米国株や為替は「取引所:シンボル」で入力します（例 NYSE:KO、FX:USDJPY）。</p>
+    <div class="presets" id="presets"></div>
+    <p class="label" id="count"></p>
+    <div id="rows"></div>
+    ${state.lists.length > 1 ? '<button class="btn danger" id="delList">このリストを削除</button>' : ''}`, () => {
+    const msg = $('#msg'), defaultMsg = msg.textContent;
+    const say = (t, err) => { msg.textContent = t; msg.classList.toggle('err', !!err); };
+
+    function rows() {
+      $('#count').textContent = `${l.symbols.length}銘柄`;
+      $('#rows').innerHTML = l.symbols.map((x, i) => `
+        <div class="row">
+          <div class="main"><div class="nm">${esc(x.n || x.s)}</div><div class="sym">${esc(x.s)}</div></div>
+          <button class="mini" data-act="up" data-i="${i}" aria-label="上へ" ${i === 0 ? 'disabled' : ''}>↑</button>
+          <button class="mini" data-act="down" data-i="${i}" aria-label="下へ" ${i === l.symbols.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="mini" data-act="del" data-i="${i}" aria-label="削除" style="color:var(--down)">✕</button>
+        </div>`).join('');
+      const have = new Set(l.symbols.map(x => x.s));
+      $('#presets').innerHTML = PRESETS.filter(p => !have.has(p[0])).slice(0, 10)
+        .map(p => `<button class="chip" data-s="${p[0]}" data-n="${esc(p[1])}">＋ ${esc(p[1])}</button>`).join('');
     }
-    h += '<text x="'+(pl+i*bw+bw/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+(i+1)+'</text>';
+    function add(sym, name) {
+      if (!sym) { say('銘柄コードを入力してください', true); return false; }
+      if (l.symbols.some(x => x.s === sym)) { say(`${sym} はすでにこのリストにあります`, true); return false; }
+      l.symbols.push(mk(sym, (name || '').trim().slice(0, 30)));
+      save(); rows(); say(`${sym} を追加しました`);
+      return true;
+    }
+    rows();
+
+    $('#done').onclick = closeSheet;
+    $('#lname').oninput = e => { l.name = e.target.value.trim() || '無題のリスト'; save(); $('#listName').textContent = l.name; };
+    $('#acode').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#aname').focus(); } };
+    $('#aname').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#addSym').click(); } };
+    $('#acode').oninput = () => say(defaultMsg);
+    $('#addSym').onclick = () => {
+      if (add(normalize($('#acode').value), $('#aname').value)) {
+        $('#acode').value = ''; $('#aname').value = ''; $('#acode').focus();
+      }
+    };
+    $('#presets').onclick = e => { const b = e.target.closest('.chip'); if (b) add(b.dataset.s, b.dataset.n); };
+    $('#rows').onclick = e => {
+      const b = e.target.closest('.mini'); if (!b) return;
+      const i = +b.dataset.i, a = l.symbols;
+      if (b.dataset.act === 'up' && i > 0) [a[i - 1], a[i]] = [a[i], a[i - 1]];
+      if (b.dataset.act === 'down' && i < a.length - 1) [a[i + 1], a[i]] = [a[i], a[i + 1]];
+      if (b.dataset.act === 'del') {
+        const [gone] = a.splice(i, 1);
+        if (gone.s === state.chartSymbol) state.chartSymbol = (a[0] || {}).s || '';
+      }
+      save(); rows();
+    };
+    const del = $('#delList');
+    if (del) del.onclick = () => {
+      if (!confirm(`「${l.name}」を削除しますか？`)) return;
+      state.lists = state.lists.filter(x => x.id !== l.id);
+      selectList(state.lists[0].id); state.current = state.lists[0].id; save();
+      closeSheet();
+    };
+    if (focusAdd) setTimeout(() => $('#acode').focus(), 250);
   });
-  return h+'</svg>';
 }
 
-/* ---------- detail ---------- */
-let dmap = null;
-const sheet = $('#sheet');
-function closeDetail(){
-  sheet.classList.remove('open'); sheet.setAttribute('aria-hidden', 'true');
-  setTimeout(() => { if(dmap){ dmap.remove(); dmap = null; } sheet.innerHTML = ''; }, 260);
-  renderList(); renderStats();
-}
-function openDetail(id){
-  const r = records.find(x => x.id === id);
-  if(!r) return;
-  const ct = [{name:'スタート', t:r.start, alt:r.points[0] ? r.points[0][2] : null}]
-    .concat(r.waypoints)
-    .concat([{name:'ゴール', t:r.end, alt:r.points.length ? r.points[r.points.length-1][2] : null}]);
-  const ctHtml = ct.map((w, i) =>
-    '<li><span class="time num">'+hm(w.t)+'</span><span>'+esc(w.name)+
-    (w.alt != null ? ' <span class="alt num">'+Math.round(w.alt)+' m</span>' : '')+'</span>'+
-    '<span class="gap num">'+(i ? '+'+dur(w.t - ct[i-1].t) : '')+'</span></li>').join('');
-  sheet.innerHTML =
-    '<div class="sheet-head"><button id="dBack">‹ 戻る</button></div>'+
-    '<div class="page">'+
-      '<input class="name-input" id="dName" value="'+esc(r.name)+'" aria-label="山の名前">'+
-      '<p class="muted" style="margin:6px 0 0">'+ymd(r.start)+'　'+hm(r.start)+'〜'+hm(r.end)+'</p>'+
-      '<div id="dmap"></div>'+
-      '<div class="totals num">'+
-        '<div><div class="k">距離</div><div class="v">'+km(r.distance)+'<small>km</small></div></div>'+
-        '<div><div class="k">行動時間</div><div class="v">'+dur(r.duration)+'</div></div>'+
-        '<div><div class="k">登り / 下り</div><div class="v">'+Math.round(r.gain)+'<small>/</small>'+Math.round(r.loss)+'<small>m</small></div></div>'+
-        '<div><div class="k">最高地点</div><div class="v">'+(r.maxAlt != null ? Math.round(r.maxAlt) : '--')+'<small>m</small></div></div>'+
-      '</div>'+
-      '<h2>標高グラフ</h2>'+elevChart(r.points)+
-      '<h2>コースタイム</h2><ul class="ct">'+ctHtml+'</ul>'+
-      '<h2>メモ</h2><textarea class="memo" id="dMemo" placeholder="天気、道の状態、次回への気づきなど">'+esc(r.memo)+'</textarea>'+
-      '<h2>データ</h2><div class="row-btns">'+
-        '<button class="btn-plain" id="dGpx">GPXで書き出す</button>'+
-        '<button class="btn-plain btn-danger" id="dDel">この記録を削除</button>'+
-      '</div>'+
-    '</div>';
-  sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false'); sheet.scrollTop = 0;
+$('#listBtn').onclick = openLists;
+$('#addBtn').onclick = () => openEdit(true);
+$('#editBtn').onclick = () => openEdit(false);
 
-  $('#dBack').addEventListener('click', closeDetail);
-  $('#dName').addEventListener('change', e => { r.name = e.target.value.trim() || '名前のない山行'; persistRecords(); });
-  let memoTimer;
-  $('#dMemo').addEventListener('input', e => { clearTimeout(memoTimer); memoTimer = setTimeout(() => { r.memo = e.target.value; persistRecords(); }, 500); });
-  $('#dGpx').addEventListener('click', () => shareFile((r.name || 'track')+'_'+ymd(r.start).replace(/\//g,'-')+'.gpx', toGpx(r), 'application/gpx+xml'));
-  $('#dDel').addEventListener('click', () => {
-    if(!confirm('「'+r.name+'」を削除しますか？元に戻せません。')) return;
-    records = records.filter(x => x.id !== r.id); persistRecords(); closeDetail(); toast('削除しました');
-  });
+/* ウォッチリスト内の銘柄タップ（largeChartUrl経由）で開かれた場合はチャートを表示 */
+const qs = new URLSearchParams(location.search).get('tvwidgetsymbol');
+if (qs) { state.chartSymbol = qs; history.replaceState(null, '', appUrl()); }
 
-  if(typeof L !== 'undefined'){
-    setTimeout(() => {
-      dmap = L.map('dmap', {zoomControl:false, attributionControl:true});
-      tiles('std').addTo(dmap);
-      const ll = r.points.map(p => [p[0], p[1]]);
-      if(ll.length > 1){
-        const line = L.polyline(ll, {color:cssVar('--mark'), weight:4}).addTo(dmap);
-        dmap.fitBounds(line.getBounds(), {padding:[24,24]});
-      } else if(ll.length) dmap.setView(ll[0], 15);
-      else dmap.setView([34.95, 137.25], 10);
-      r.waypoints.forEach(w => L.marker([w.lat, w.lng], {icon:wpIcon(w.name)}).addTo(dmap));
-    }, 280);
-  }
-}
-
-/* ---------- export ---------- */
-function toGpx(r){
-  const wpts = r.waypoints.map(w =>
-    '<wpt lat="'+w.lat+'" lon="'+w.lng+'">'+(w.alt != null ? '<ele>'+w.alt+'</ele>' : '')+
-    '<time>'+new Date(w.t).toISOString()+'</time><name>'+esc(w.name)+'</name></wpt>').join('\n');
-  const trk = r.points.map(p =>
-    '<trkpt lat="'+p[0]+'" lon="'+p[1]+'">'+(p[2] != null ? '<ele>'+p[2]+'</ele>' : '')+
-    '<time>'+new Date(p[3]).toISOString()+'</time></trkpt>').join('\n');
-  return '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="yamalog" xmlns="http://www.topografix.com/GPX/1/1">\n'+
-    wpts+'\n<trk><name>'+esc(r.name)+'</name><trkseg>\n'+trk+'\n</trkseg></trk>\n</gpx>';
-}
-async function shareFile(name, text, mime){
-  const blob = new Blob([text], {type:mime});
-  try{
-    const file = new File([blob], name, {type:mime});
-    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file]}); return; }
-  }catch(e){ if(e && e.name === 'AbortError') return; }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = name;
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
-}
-
-/* ---------- stats ---------- */
-let statYear = new Date().getFullYear();
-function renderStats(){
-  const el = $('#statsPage');
-  const years = [...new Set(records.map(r => new Date(r.start).getFullYear()))].sort((a, b) => b-a);
-  if(!years.includes(statYear) && years.length) statYear = years[0];
-  const ys = records.filter(r => new Date(r.start).getFullYear() === statYear);
-  const sum = (arr, f) => arr.reduce((s, r) => s + (f(r) || 0), 0);
-  const months = Array(12).fill(0);
-  ys.forEach(r => { months[new Date(r.start).getMonth()] += r.distance; });
-  const counts = {};
-  records.forEach(r => { counts[r.name] = (counts[r.name] || 0) + 1; });
-  const top = Object.entries(counts).sort((a, b) => b[1]-a[1]).slice(0, 5);
-  const highest = records.filter(r => r.maxAlt != null).sort((a, b) => b.maxAlt - a.maxAlt)[0];
-
-  let h = '<h1>統計</h1>';
-  if(!records.length){
-    h += '<div class="empty">記録がたまると、ここに年間の距離や登った標高が表示されます。</div>';
-  } else {
-    h += '<label class="muted" style="font-size:13px">年　<select id="sYear" class="btn-plain" style="padding:6px 10px">'+
-      years.map(y => '<option'+(y === statYear ? ' selected' : '')+'>'+y+'</option>').join('')+'</select></label>';
-    h += '<div class="totals num" style="margin-top:12px">'+
-      '<div><div class="k">山行</div><div class="v">'+ys.length+'<small>回</small></div></div>'+
-      '<div><div class="k">距離</div><div class="v">'+km(sum(ys, r => r.distance), 1)+'<small>km</small></div></div>'+
-      '<div><div class="k">登った標高</div><div class="v">'+Math.round(sum(ys, r => r.gain)).toLocaleString()+'<small>m</small></div></div>'+
-      '<div><div class="k">行動時間</div><div class="v">'+Math.round(sum(ys, r => r.duration)/3600000)+'<small>時間</small></div></div>'+
-    '</div>';
-    h += '<h2>月別の距離（km）</h2>'+monthChart(months);
-    if(highest) h += '<h2>いちばん高い地点</h2><p style="margin:0"><b>'+esc(highest.name)+'</b>　<span class="num">'+Math.round(highest.maxAlt)+' m</span>　<span class="muted">'+ymd(highest.start)+'</span></p>';
-    h += '<h2>よく登る山</h2><ul class="toplist">'+top.map(([n, c]) => '<li><span>'+esc(n)+'</span><span class="num">'+c+'回</span></li>').join('')+'</ul>';
-  }
-  h += '<h2>バックアップ</h2><p class="muted" style="font-size:13px;margin:0 0 10px;line-height:1.7">記録はこのiPhoneの中だけに保存されています。ときどき書き出して、ファイルAppなどに保管してください。</p>'+
-    '<div class="row-btns"><button class="btn-plain" id="bExport">バックアップを書き出す</button><button class="btn-plain" id="bImport">バックアップを読み込む</button></div>';
-  el.innerHTML = h;
-
-  const sel = $('#sYear');
-  if(sel) sel.addEventListener('change', e => { statYear = +e.target.value; renderStats(); });
-  $('#bExport').addEventListener('click', () => {
-    if(!records.length){ toast('書き出す記録がありません'); return; }
-    shareFile('yamalog-backup-'+ymd(Date.now()).replace(/\//g,'-')+'.json', JSON.stringify({app:'yamalog', v:1, records}), 'application/json');
-  });
-  $('#bImport').addEventListener('click', () => $('#importFile').click());
-}
-$('#importFile').addEventListener('change', e => {
-  const f = e.target.files[0]; if(!f) return;
-  const rd = new FileReader();
-  rd.onload = () => {
-    try{
-      const data = JSON.parse(rd.result);
-      const list = Array.isArray(data) ? data : data.records;
-      if(!Array.isArray(list)) throw new Error('形式が違います');
-      const ids = new Set(records.map(r => r.id));
-      let added = 0;
-      list.forEach(r => { if(r && r.id && Array.isArray(r.points) && !ids.has(r.id)){ records.push(r); added++; } });
-      records.sort((a, b) => b.start - a.start);
-      persistRecords(); renderList(); renderStats();
-      toast(added+'件の記録を読み込みました');
-    }catch(err){ toast('読み込めませんでした。やまログのバックアップファイルを選んでください'); }
-    e.target.value = '';
-  };
-  rd.readAsText(f);
-});
-
-renderList(); renderStats();
+applyTheme();
+$('#listName').textContent = cur().name;
+setTab(qs ? 'chart' : 'watch');
 })();
 </script>
 </body>
